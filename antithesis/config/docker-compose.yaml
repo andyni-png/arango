@@ -1,0 +1,72 @@
+name: arangodb-agency
+
+x-agent: &agent
+  platform: linux/amd64
+  init: true
+  build:
+    context: ..
+    dockerfile: Dockerfile
+    target: agent
+  image: arangodb-agency-agent:latest
+  environment:
+    NO_COLOR: "1"
+    AGENCY_COMPACTION_STEP_SIZE: "100"
+    AGENCY_COMPACTION_KEEP_SIZE: "50"
+  healthcheck:
+    test:
+      - CMD-SHELL
+      - >-
+        wget -q -O /dev/null
+        --header "Authorization: bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhcmFuZ29kYiIsInNlcnZlcl9pZCI6ImZvbyJ9.Q7ieHXQQk0A2BTFTeXDYEujLYxaxC7oYK5BD3Xg4jFg"
+        http://127.0.0.1:8531/_api/version
+    interval: 2s
+    timeout: 5s
+    retries: 60
+    start_period: 5s
+
+services:
+  agency-agent1:
+    <<: *agent
+    container_name: agency-agent1
+    hostname: agency-agent1
+    volumes:
+      - agent1-data:/var/lib/arangodb-agency
+
+  agency-agent2:
+    <<: *agent
+    container_name: agency-agent2
+    hostname: agency-agent2
+    volumes:
+      - agent2-data:/var/lib/arangodb-agency
+
+  agency-agent3:
+    <<: *agent
+    container_name: agency-agent3
+    hostname: agency-agent3
+    volumes:
+      - agent3-data:/var/lib/arangodb-agency
+
+  agency-workload:
+    container_name: agency-workload
+    hostname: agency-workload
+    platform: linux/amd64
+    init: true
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: workload
+    image: arangodb-agency-workload:latest
+    environment:
+      NO_COLOR: "1"
+    depends_on:
+      agency-agent1:
+        condition: service_healthy
+      agency-agent2:
+        condition: service_healthy
+      agency-agent3:
+        condition: service_healthy
+
+volumes:
+  agent1-data:
+  agent2-data:
+  agent3-data:
